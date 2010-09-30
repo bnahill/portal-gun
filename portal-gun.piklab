@@ -3,7 +3,7 @@
   <general>
     <device>18F2685</device>
     <tool>sdcc</tool>
-    <programmer>gpsim</programmer>
+    <programmer>custom</programmer>
     <files>
       <item>portal-gun.c</item>
       <item>button.c</item>
@@ -16,14 +16,14 @@
       <item>sound.h</item>
     </files>
     <custom_linker_script>/usr/share/gputils/lkr/18f2685.lkr</custom_linker_script>
-    <description/>
+    <description></description>
     <version>0.1</version>
     <output_type>executable</output_type>
   </general>
   <editors/>
   <compiler>
     <has_custom_arguments>false</has_custom_arguments>
-    <custom_options/>
+    <custom_options></custom_options>
     <warning_level>0</warning_level>
     <custom_arguments>
       <item>-m%FAMILY</item>
@@ -40,7 +40,7 @@
   </compiler>
   <linker>
     <has_custom_arguments>false</has_custom_arguments>
-    <custom_options/>
+    <custom_options></custom_options>
     <format>inhx32</format>
     <custom_libraries/>
     <custom_arguments>
@@ -62,7 +62,7 @@
   </linker>
   <librarian>
     <has_custom_arguments>false</has_custom_arguments>
-    <custom_options/>
+    <custom_options></custom_options>
     <custom_arguments>
       <item>-c</item>
       <item>%O</item>
