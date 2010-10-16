@@ -9,18 +9,16 @@
 
 typedef struct {
     const char mask;
-	ButtonFunc call;
-    long avg, low, high, avgcount;
     int debounce;
     char pressed;
 } Button;
 
-static Button buttons[2] = {
-	//{ 0x01, toggle_mode },
-    { 0x02, toggle_power },
-};
-
-void button_init(ButtonFunc event_call){
+void button_isr(void){
 	
+}
+
+void button_init(void){
+	// Enable weak pull-ups
+	INTCON2bits.RBPU = 0;
 }
 

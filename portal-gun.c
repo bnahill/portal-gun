@@ -16,7 +16,6 @@
 
 #define PERIOD 0x7F
 
-
 void timer_init(void);
 
 
@@ -64,25 +63,16 @@ void isr_low(void) __interrupt 2 {
 
 //Initialize Timer2 for PWM output
 void pwm_init() {
-	TMR2 = 0;
-	//      1:2 postscale      OFF       1:1 prescale
-	//T2CON = (0b0001 << 3) + (0b0 << 2) + (0b00 << 0);
-	T2CON = 0x38;
-	// Clear TMR2IF
-	PIR1 &= ~0x02;
-	// Set comparison period
-	PR2 = 0x0F;
-	
-	// Set Timer2 to low priority interrupt
-	IPR1 |= 0x02;
-	// Set TMR2IE
-	PIE1 |= 0x02;
-	//           ON
-	T2CON |= (0b1 << 2);
+	//PWM mode
+	CCP1CON = 0x0F;
+	// Set PORTC2 to output
+	TRISC &= ~0x04;
+	CCPR1L = 0x08;
 }
 
 void pwm_change(char value){
-	//pwm_value = value;
+	pwm_value = value;
+	
 }
 
 void pwm_save(char value){
@@ -101,9 +91,12 @@ void main() {
 	LATAbits.LATA6 = 0;
 	
 	pwm_value = 70;
+	
 	rotary_init(pwm_change, pwm_save);
 	timer_init();
+	timer2_init();
 	pwm_init();
+	button_init();
 	
 	
 	// Set GIEH
@@ -142,5 +135,23 @@ void timer_init(void){
 	T0CON = 0b11001000;
 	// Set TMR0IE
 	INTCON |= 0x20;
+}
+
+void timer2_init(void){
+	TMR2 = 0;
+	//      1:2 postscale      OFF       1:1 prescale
+	//T2CON = (0b0001 << 3) + (0b0 << 2) + (0b00 << 0);
+	T2CON = 0x38;
+	// Clear TMR2IF
+	//PIR1 &= ~0x02;
+	// Set comparison period
+	PR2 = 0xFF;
+	
+	// Set Timer2 to low priority interrupt
+	//IPR1 |= 0x02;
+	// Set TMR2IE
+	//PIE1 |= 0x02;
+	//           ON
+	T2CON |= (0b1 << 2);
 }
 
