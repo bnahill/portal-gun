@@ -1,0 +1,11 @@
+Portal gun light controller
+
+Author:
+	Ben Nahill -- bnahill@gmail.com
+
+Description:
+	Software for PIC18F2685 to control lights for portal gun prop
+
+Notes:
+	Compiles in SDCC
+
