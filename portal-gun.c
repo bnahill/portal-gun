@@ -1,114 +1,103 @@
 /*
- * Portal gun light controller for PIC18F2685
+ * Portal gun light controller for PIC12F683
  * 
+ * Since the external interrupt connection is taken for 
+ * the PWM output, low-power mode is just where the timer
+ * is disabled and output driven low.
+ *
  * Wiring:
- *  AN0 (pin 2, RA0) tied to potentiometer
- *  AN0 (pin 7, GP0) is the color button (and serial data)
- *  AN1 (pin 6, GP1) is the power button (and serial clk)
- *  GP5 (pin 2) is the LED select pin (1 drives blue)
+ *  AN3 (pin 3, GP4) tied to potentiometer
+ *  AN0 (pin 7, GP0) is the button (and serial data)
+ *  GP1 (pin 6) is the blue LED pin
+ *  GP5 (pin 2) is the orange LED pin
  *  CCP1 (pin 5, GP2) is the master LED driver
  *
  */
-#include <pic18f2685.h>
+#include <pic12f683.h>
 
+#include "portal-gun.h"
 #include "button.h"
 #include "rotary.h"
 
 #define PERIOD 0x7F
 
-void timer_init(void);
+#define BLUE_PIN_MASK   (0b00000010)
+#define ORANGE_PIN_MASK (0b00100000)
+
+#define PWM_PIN_MASK    (0b00000100)
+#define TMR2_IF_REG     PIR1
+#define TMR2_IF_MASK    (0b00000010)
+#define TMR2_IE_REG     PIE1
+#define TMR2_IE_MASK    (0b00000010)
+
+char low_power = 0;
+
+void lights_init(void);
 
 
-code char at __CONFIG1H CONFIG1H = _OSC_IRCIO67_1H & _FCMEN_OFF_1H & _IESO_OFF_1H;
-code char at __CONFIG2L CONFIG2L = _PWRT_OFF_2L & _BOREN_OFF_2L & _BORV_3_2L;
-code char at __CONFIG2H CONFIG2H = _WDT_OFF_2H & _WDTPS_32768_2H;
-code char at __CONFIG3H CONFIG3H = _PBADEN_OFF_3H & _LPT1OSC_OFF_3H & _MCLRE_ON_3H;
-code char at __CONFIG4L CONFIG4L = _STVREN_ON_4L & _LVP_ON_4L & _BBSIZ_1024_4L & _XINST_ON_4L & _DEBUG_OFF_4L;
-/*
-code char at __CONFIG5L CONFIG5L = _CP0_OFF_5L & _CP1_OFF_5L & _CP2_OFF_5L & _CP3_OFF_5L & _CP4_OFF_5L & _CP5_OFF_5L;
-code char at __CONFIG5H CONFIG5H = _CPB_OFF_5H & _CPD_OFF_5H;
-code char at __CONFIG6L CONFIG6L = _WRT0_OFF_6L & _WRT1_OFF_6L & _WRT2_OFF_6L & _WRT3_OFF_6L & _WRT4_OFF_6L & _WRT5_OFF_6L;
-code char at __CONFIG6H CONFIG6H = _WRTC_OFF_6H & _WRTB_OFF_6H & _WRTD_OFF_6H;
-code char at __CONFIG7L CONFIG7L = _EBTR0_OFF_7L & _EBTR1_OFF_7L & _EBTR2_OFF_7L & _EBTR3_OFF_7L & _EBTR4_OFF_7L & _EBTR5_OFF_7L;
-code char at __CONFIG7H CONFIG7H = _EBTRB_OFF_7H;
-*/
-char pwm_value = 0;
+typedef unsigned int word;
+word at 0x2007 CONFIG = _INTRC_OSC_NOCLKOUT & _WDT_OFF & _PWRTE_OFF & _MCLRE_ON & _CP_OFF & _CPD_OFF & _BOD_ON & _IESO_ON & _FCMEN_ON;
 
 
-// Ghetto PWM gets high priority slot since it's more
-// sensitive to jitter
-void isr_high(void) __interrupt 1 {
-	if(PIR1 & 0x02){
-		// Timing isn't reliable enough to go without checking...
-		if(LATAbits.LATA6){
-			LATAbits.LATA6 = 0;
-			PR2 = ~pwm_value;
-		}
-		else {
-			LATAbits.LATA6 = 1;
-			PR2 = pwm_value;
-		}
-		PIR1 &= ~0x02;
-	}
-}
-
-// Couldn't care less when this gets run
-void isr_low(void) __interrupt 2 {
-	if(INTCON & 0x04){
-		//rotary_read();
-		//Clear IF
-		INTCON &= ~0x04;
-	}
-}
+enum {BLUE = 0x00, ORANGE = 0x01} color = BLUE;
+char values[2] = {0x00, 0x00};
 
 //Initialize Timer2 for PWM output
 void pwm_init() {
-	//PWM mode
-	CCP1CON = 0x0F;
-	// Set PORTC2 to output
-	TRISC &= ~0x04;
-	CCPR1L = 0x08;
+	// Disable output
+	TRISIO |= PWM_PIN_MASK;
+	// Set timer period
+	PR2 = 0xFF;
+	// Configure for PWM mode with 0b11 in LSB of value
+	CCP1CON = 0b00111100;
+	// Provide initial value
+	CCPR1L = 0x7F >> 1;
+	// Clear TMR2 IF
+	TMR2_IF_REG &= ~TMR2_IF_MASK;
+	// Enable T2 with 1:4 prescaler
+	T2CON = 0b00000101;
+	
+	// Wait for a new period
+	while(!(TMR2_IF_REG & TMR2_IF_MASK));
+	// Enable output
+	TRISIO &= ~PWM_PIN_MASK;
 }
 
-void pwm_change(char value){
-	pwm_value = value;
-	
+void color_toggle(void){
+	color ^= 0x01;
+	if(color == BLUE){
+		GPIO = BLUE_PIN_MASK;
+		CCPR1L = values[BLUE];
+	} else {
+		GPIO = ORANGE_PIN_MASK;
+		CCPR1L = values[ORANGE];
+	}
 }
 
-void pwm_save(char value){
-	
+void pwm_sleep(void){
+	// Disable T2
+	T2CON &= ~0x01;
+	// Drive output to ground
+	GPIO &= ~PWM_PIN_MASK;
+}
+
+void pwm_wakeup(void){
+	// Start T2 again
+	T2CON |= 0x01;
 }
 
 void main() {
-	OSCCON = 0x73;
-	OSCTUNE = 0x40;
+	// Disable comparator everywhere
+	CMCON0 |= 0b00000111;
+	// Disable all analog
+	ANSEL = 0x00;
 	
-	// Set IPEN
-	RCON |= 0x80;
-	
-	
-	TRISAbits.TRISA6 = 0;
-	LATAbits.LATA6 = 0;
-	
-	pwm_value = 70;
-	
-	rotary_init(pwm_change, pwm_save);
-	timer_init();
-	timer2_init();
 	pwm_init();
+	//rotary_init();
 	button_init();
-	
-	
-	// Set GIEH
-	INTCON |= 0xC0;
-
-	//T1CON = 0;
-	//TRISIO &= ~0x20;
-	//GPIO |= 0x20;
-    //pwm_init();
-	//adc_init();
 	while(1){
-		continue;
+		//rotary_read();
+		button_run();
 	}
 }
 
@@ -116,42 +105,25 @@ void main() {
  * This should only be called to enter sleep.
  * Return will take ISR
  */
-void toggle_power(void){
-	// Give other modules an opportunity to clean up
-	//rotary_sleep();
+void sleep(void){
+	pwm_sleep();
+	button_sleep();
+	low_power = 1;
+	// Set to 32kHz internal oscillator
+	OSCCON &= ~0b111;
 	_asm
-		sleep
+		sleep;
 	_endasm;
 }
 
-void timer_init(void){
-	//Configure timer
-	T0CON = 0b01001000;
-	// Clear TMR0IE and TMR0IF
-	INTCON &= ~0x24;
-	// Low priority
-	INTCON2 &= ~0x04;
-	//Turn timer on
-	T0CON = 0b11001000;
-	// Set TMR0IE
-	INTCON |= 0x20;
+
+void wakeup(void){
+	// Set to 4MHz, assuming coming from 32k
+	OSCCON |= 0b110;
+	low_power = 0;
+	pwm_wakeup();
 }
 
-void timer2_init(void){
-	TMR2 = 0;
-	//      1:2 postscale      OFF       1:1 prescale
-	//T2CON = (0b0001 << 3) + (0b0 << 2) + (0b00 << 0);
-	T2CON = 0x38;
-	// Clear TMR2IF
-	//PIR1 &= ~0x02;
-	// Set comparison period
-	PR2 = 0xFF;
-	
-	// Set Timer2 to low priority interrupt
-	//IPR1 |= 0x02;
-	// Set TMR2IE
-	//PIE1 |= 0x02;
-	//           ON
-	T2CON |= (0b1 << 2);
+void lights_init(void){
+	TRISIO &= ~(BLUE_PIN_MASK | ORANGE_PIN_MASK);
 }
-

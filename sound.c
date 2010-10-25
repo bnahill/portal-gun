@@ -1,5 +1,5 @@
 #include "sound.h"
-#include <pic18f2685.h>
+#include <pic12f683.h>
 
 void sound_init(void){
 	

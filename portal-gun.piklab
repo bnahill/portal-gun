@@ -1,7 +1,7 @@
 <!DOCTYPE piklab>
 <piklab>
   <general>
-    <device>18F2685</device>
+    <device>12F683</device>
     <tool>sdcc</tool>
     <programmer>custom</programmer>
     <files>
@@ -15,7 +15,7 @@
       <item>sound.c</item>
       <item>sound.h</item>
     </files>
-    <custom_linker_script>/usr/share/gputils/lkr/18f2685.lkr</custom_linker_script>
+    <custom_linker_script/>
     <description/>
     <version>0.1</version>
     <output_type>executable</output_type>
