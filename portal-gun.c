@@ -40,7 +40,7 @@ word at 0x2007 CONFIG = _INTRC_OSC_NOCLKOUT & _WDT_OFF & _PWRTE_OFF & _MCLRE_ON 
 
 
 enum {BLUE = 0x00, ORANGE = 0x01} color = BLUE;
-char values[2] = {0x00, 0x00};
+char values[2] = {0x70, 0x40};
 
 //Initialize Timer2 for PWM output
 void pwm_init() {
@@ -76,26 +76,32 @@ void color_toggle(void){
 
 void pwm_sleep(void){
 	// Disable T2
-	T2CON &= ~0x01;
+	T2CON &= ~0x04;
+	CCP1CON &= ~0x0F;
 	// Drive output to ground
 	GPIO &= ~PWM_PIN_MASK;
 }
 
 void pwm_wakeup(void){
 	// Start T2 again
-	T2CON |= 0x01;
+	T2CON |= 0x04;
+	CCP1CON |= 0x0C;
 }
 
 void main() {
+	int i;
 	// Disable comparator everywhere
 	CMCON0 |= 0b00000111;
 	// Disable all analog
 	ANSEL = 0x00;
+	// Enable global (and peripheral) interrupts
+	INTCON |= 0x80;
 	
 	pwm_init();
 	//rotary_init();
 	button_init();
 	while(1){
+		for(i = 0; i < 5; i++);
 		//rotary_read();
 		button_run();
 	}
@@ -106,8 +112,6 @@ void main() {
  * Return will take ISR
  */
 void sleep(void){
-	pwm_sleep();
-	button_sleep();
 	low_power = 1;
 	// Set to 32kHz internal oscillator
 	OSCCON &= ~0b111;

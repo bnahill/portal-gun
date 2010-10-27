@@ -10,9 +10,9 @@
 #define BUTTON_IE_REG       INTCON
 #define BUTTON_IE_MASK      (0b00001000)
 
-#define DEBOUNCE_THRESH  100
-#define RELEASE_THRESH   40
-#define POWER_THRESH     5000
+#define DEBOUNCE_THRESH  ((unsigned int) 100)
+#define RELEASE_THRESH   ((unsigned int) 40)
+#define POWER_THRESH     ((unsigned int) 15000)
 
 // For some reason this can't appear in a header or SDCC dies
 extern low_power;
@@ -22,37 +22,47 @@ unsigned char release = 0;
 unsigned int debounce = 0;
 
 
+void prepare_sleep(void);
+
+
 void button_isr(void) interrupt{
-	// Probably just woke up. Disable that interrupt
-	BUTTON_IE_REG &= ~BUTTON_IE_MASK;
-	if(low_power) wakeup();
+	if(!(GPIO & BUTTON_PIN_MASK))
+		// Probably just woke up. Disable that interrupt
+		if(low_power){
+			BUTTON_IE_REG &= ~BUTTON_IE_MASK;
+			wakeup();
+		}
+	else {
+		// Keep interrupt enabled so it can go when the button
+		// is pressed again.
+		sleep();
+	}
 }
 
 void button_init(void){
-	// Set as input
-	TRISIO |= BUTTON_PIN_MASK;
-	//GPIO |= BUTTON_PIN_MASK;
 	// Enable weak pull-ups only for the button
 	WPU = BUTTON_PIN_MASK;
 	// Enable globally
 	OPTION_REG &= ~0x80;
 	
-	// Enable global (and peripheral) interrupts
-	INTCON |= 0x80;
+	// Set as input
+	TRISIO |= BUTTON_PIN_MASK;
 	
 	// Set interrupt-on-change for button
 	IOC = BUTTON_PIN_MASK;
+	CCPR1L = 0;
 }
 
 void button_run(void){
-	if(GPIO & BUTTON_PIN_MASK){
+	if(!(GPIO & BUTTON_PIN_MASK)){
+		if (debounce > POWER_THRESH){
+			// No need for release for power button
+			release = 0;
+			debounce = 0;
+			prepare_sleep();
+		}
 		debounce++; 
 		release = 0;
-	} else if (debounce > POWER_THRESH){
-		// No need for release for power button
-		release = 0;
-		debounce = 0;
-		sleep();
 	} else if (debounce > DEBOUNCE_THRESH){
 		if(++release > RELEASE_THRESH){
 			release = 0;
@@ -60,14 +70,20 @@ void button_run(void){
 			color_toggle();
 		}
 	} else if (debounce){
-		debounce -= 2;
+		debounce -= 1;
 	}
 }
 
 void button_sleep(void){
-	debounce = 0;
+	
+}
+
+void prepare_sleep(void){
+	// Make it look like it's sleeping
+	pwm_sleep();
 	// Enable that interrupt
 	BUTTON_IF_REG &= ~BUTTON_IF_MASK;
 	BUTTON_IE_REG |= BUTTON_IE_MASK;
+	// Actually sleep on the IOC interrupt
 }
 

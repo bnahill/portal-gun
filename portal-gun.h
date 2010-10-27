@@ -4,5 +4,6 @@
 void sleep(void);
 void wakeup(void);
 void color_toggle(void);
+void pwm_sleep(void);
 
 #endif
