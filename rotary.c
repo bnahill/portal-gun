@@ -69,6 +69,7 @@ void rotary_read(void){
 	avg1 = (value >> 2) + (prev2 >> 2) + (prev3 >> 2) + (prev4 >> 2);
 	avg2 = (prev4 >> 2) + (prev5 >> 2) + (prev6 >> 2) + (prev7 >> 2);
 	if(ABS((signed long)((unsigned long)avg1 - (unsigned long)avg2)) > 2){
+		CCPR1L = value;
 		//pwm_set(value);
 	}
 }

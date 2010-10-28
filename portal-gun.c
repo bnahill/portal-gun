@@ -40,7 +40,7 @@ word at 0x2007 CONFIG = _INTRC_OSC_NOCLKOUT & _WDT_OFF & _PWRTE_OFF & _MCLRE_ON 
 
 
 enum {BLUE = 0x00, ORANGE = 0x01} color = BLUE;
-char values[2] = {0x70, 0x40};
+char values[2] = {190, 255};
 
 //Initialize Timer2 for PWM output
 void pwm_init() {
@@ -97,6 +97,8 @@ void main() {
 	// Enable global (and peripheral) interrupts
 	INTCON |= 0x80;
 	
+	TRISIO &= ~(ORANGE_PIN_MASK | BLUE_PIN_MASK);
+	
 	pwm_init();
 	//rotary_init();
 	button_init();
@@ -113,6 +115,7 @@ void main() {
  */
 void sleep(void){
 	low_power = 1;
+	GPIO &= ~(ORANGE_PIN_MASK | BLUE_PIN_MASK);
 	// Set to 32kHz internal oscillator
 	OSCCON &= ~0b111;
 	_asm
@@ -125,6 +128,13 @@ void wakeup(void){
 	// Set to 4MHz, assuming coming from 32k
 	OSCCON |= 0b110;
 	low_power = 0;
+	if(color == BLUE){
+		GPIO = BLUE_PIN_MASK;
+		CCPR1L = values[BLUE];
+	} else {
+		GPIO = ORANGE_PIN_MASK;
+		CCPR1L = values[ORANGE];
+	}
 	pwm_wakeup();
 }
 
